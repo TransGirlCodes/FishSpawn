@@ -1,0 +1,146 @@
+gmacro
+spawnFAM
+Note THIS IS FOR COMPARING THE SPAWNING DISTRIBUTION
+Note IN FAMILIES.
+Note
+Note INPUT:
+Note Data of families spawning numbers need to be in c1-c4.
+Note 
+Note The macro simulates the same number of individuals (N=41)
+Note spawning the observed number of times / indiv. and from a
+Note total of 9 F2 families.
+Note # spawns with Pn=151
+Note # spawns with Pp=142
+Note Tot # spawns = 293.
+Note 
+Note The user can estimate the repeatability (R) which increases 
+Note the likelihood to spawn with the same species again (after the 1st
+Note spawning decision). This parameter 0<R<1. 
+Note The probability to subsequent spawn with same species equals:
+Note Prob(Pm) = Pm + (R.Pp)
+Note Prob(Pp) = Pp + (R.Pm)
+Note
+Note The macro calculates the variation in spawning decisions within 
+Note (Var(w)) and between (Var(b)) families. The observed Var(b) is
+Note significantly larger than expected than expected by chance 
+Note Kruskall-Wallis H = 18.31, df=8, p=0.019), which could indicate
+Note a genetic component, but it may also be explaiend by the increased
+Note stochasticity due to R. The macro will test this.
+Note It also tests whether the observed Var(w) is more than the simulated 
+Note Var(w) with R=0, and whether R=0.7 fits the data better.
+Note 
+erase c6-c1000
+name c4 'Tot' c5 'Pn/(Pn+Pp)' 
+name c10 'Simulation' c11 'Family' c12 'Reinforcement' c13 'Pn spawnings' c14 'Pp spawnings'
+name c15 'Total spawnings' c16 'BinomProb' c17 'New indiv i.d.'
+name c210 'Stacked Sim' c211 'Stacked R' c212 'Stacked fams' c213 'Stacked StDev'
+name c214 'Obs Fam' c215 'Obs StDev' c219 'Obs Stdev(Mean[Pn/Tot of fams])'
+name c220 'Sim between fams' c221 'R between fams' c222 'Sim Stdev(Mean[Pn/Tot of fams])'
+
+Note What is the reinforcement coefficient (R)? 
+name k101 'R'
+set c999;
+file 'terminal';
+nobs = 1.
+let 'R'=sum(c999)
+
+brief 1
+
+let c4=c2+c3
+let c5=c2/c4
+
+  # Calculate the observed variation within families:
+  erase c999
+  copy c1-c5 c901-c905
+  mlabel 2
+    let k111=min(c901)		# k111: first family
+    copy c905 c906;
+    use c901=k111.  
+    let k112=stdev(c906)
+    let k999=mean(c906)  		# The variation between families
+    stack c999 k999 c999
+    stack (c214-c215) (k111 k112) (c214-c215)
+    copy c901-c905 c901-c905;
+    omit c901=k111.
+    N(c901) k1000
+    if k1000>0
+  goto 2
+    else
+      let k999=StDev(c999)
+      stack c219 k999 c219
+    endif
+
+do k100=1:100
+  erase c110-c116
+  do k1=1:41
+    copy c1 c4 c999 c1000;
+    use k1.
+    let k2=sum(c1000)	# k2: number of spawning of indiv. k1
+    let k102=sum(c999)	# k102: family nr.
+    Random k2 C6;
+    Uniform 0.0 1.0.
+    let k4=sum(c2)/sum(c4)	# k4: ratio of observed Pn/(Pn+Pp) spawnings
+    Code (0:k4) 1 (k4:1) 0 C6 C7
+    copy c7 c999;
+    use 1.
+    let k3=sum(c999)	# if k3=1 --> 1st spawning with Pm; if k3=0 --> 1st spawning with Pp
+    if k3=1
+      let k10=k4 + ('R'*(1-k4))
+    else
+      let k10=k4 - ('R'*k4)
+    endif
+    Code (0:k10) 1 (k10:1) 0 C6 C8
+    let k11=sum(c8)
+    let k12=N(c8)-k11
+    stack (c10-c14) (k100 k102 'R' k11 k12) (c10-c14) 
+    stack (c110-c114) (k100 k102 'R' k11 k12) (c110-c114) 
+  enddo
+
+  let c15=c13+c14
+  let c115=c113+c114
+  let k999=N(c115)
+
+  # Calculate the binomial probability of the spawnings for each female:
+  do k1=1:k999
+    copy c114 c115 c999 c1000;
+    use k1.
+    let k14=sum(c999)
+    let k15=sum(c1000)
+    CDF k14 k1000;
+    Binomial k15 0.5.
+    stack c116 k1000 c116
+  enddo
+  
+  Sort c110-c116 c110-c116;
+  By c110 c111 c116.
+  let k5=N(c1)		# k5: number of spawning females analysed
+  Set c17
+  k100( 1 : k5 / 1 )1
+  End.
+  Set c117
+  1( 1 : k5 / 1 )1
+  End.
+
+  # Calculate the variation within families:
+  erase c999
+  let c118=c113/c115		# Simulated Pn spawns
+  mlabel 1
+    let k111=min(c111)		# k111: first family
+    copy c118 c119;
+    use c111=k111.  
+    let k999=mean(c119)  		# The variation between families
+    stack c999 k999 c999
+    let k112=stdev(c119)
+    stack (c210-c213) (k100 'R' k111 k112) (c210-c213)
+    copy c110-c118 c110-c118;
+    omit c111=k111.
+    N(c111) k1000
+    if k1000>0
+  goto 1
+    else
+      let k999=Stdev(c999)		# k999: Stdev of mean spawning pref of families
+      stack (c220-c222) (k100 'R' k999) (c220-c222)
+    endif
+enddo
+brief 1
+endmacro

@@ -1,0 +1,112 @@
+gmacro
+spawn1
+Note THIS IS FOR CALCULATING THE MS VALUES (C30-C32)
+Note It also generates stacked spawning data in c210-c217
+Note 
+Note Data of spawning numbers need to be in c1-c3.
+Note The macro simulates the same number of individuals (N=69)
+Note spawning the observed number of times / indiv.
+Note # spawns with Pn=306
+Note # spawns with Pp=197
+Note Tot # spawns = 503.
+Note The macro takes into account that the likelihood to spawn with
+Note Pn=306/503=0.6 and Pm=0.4.
+Note 
+Note The user can simulate "reinforcement" or imprinting by increasing 
+Note the likelihood to spawn with the same species again (after the 1st
+Note spawning decision). This parameter 0<R<1. 
+Note The probability to subsequent spawn with same species equals:
+Note Prob(Pm) = Pm + (R.Pp)
+Note Prob(Pp) = Pp + (R.Pm)
+Note
+
+erase c4-c29 c33-c1000
+name c10 'Simulation' c11 'Individual' c12 'Reinforcement' c13 'Pn spawnings' c14 'Pp spawnings'
+name c15 'Total spawnings' c16 'BinomProb' c17 'New Indiv i.d.'
+name c21 'Indiv.' c22 'Mean(Pn)' c23 'Min(Pn)' c24 'Max(Pn)' c25 'Mean(Pp)' c26 'Min(Pp)' c27 'Max(Pp)'
+name c30 'Sims of MS' c31 'Coeff R' c32 'MS'
+name c210 'Stacked Sim' c211 'Stacked Indiv.' c212 'Stacked R' c213 'Stacked Pn spawns' c214 'Stacked Pp spawns'
+name c215 'Stacked Tot spaws' c216 'Stacked BinomProb' c217 'Stacked Indiv i.d.'
+
+Note What is the reinforcement coefficient (R)? 
+name k101 'R'
+set c999;
+file 'terminal';
+nobs = 1.
+let 'R'=sum(c999)
+
+do k100=1:100
+  do k1=1:69
+    copy c3 c4;
+    use k1.
+    let k2=sum(c4) 		# k2: number of spawning of indiv. k1
+    Random k2 C5;
+    Uniform 0.0 1.0.
+    let k4=sum(c1)/sum(c3)	# k4: ratio of observed Pn/Pp spawnings
+    Code (0:k4) 1 (k4:1) 0 C5 C6
+    copy c6 c4;
+    use 1.
+    let k3=sum(c4)		# if k3=1 --> 1st spawning with Pm; if k3=0 --> 1st spawning with Pp
+    if k3=1
+      let k10=k4 + ('R'*(1-k4))
+    else
+      let k10=k4 - ('R'*k4)
+    endif
+    Code (0:k10) 1 (k10:1) 0 C5 C7
+    let k11=sum(c7)
+    let k12=N(c7)-k11
+    stack (c10-c14) (k100 k1 'R' k11 k12) (c10-c14) 
+    stack (c110-c114) (k100 k1 'R' k11 k12) (c110-c114) 
+  enddo
+
+  let c15=c13+c14
+  let c115=c113+c114
+  let k999=N(c115)
+
+  # Calculate the binomial probability of the spawnings for each female:
+  do k1=1:k999
+    copy c114 c115 c999 c1000;
+    use k1.
+    let k14=sum(c999)
+    let k15=sum(c1000)
+    CDF k14 k1000;
+    Binomial k15 0.5.
+    stack c116 k1000 c116
+  enddo
+
+  Sort c110-c116 c110-c116;
+  By c110 c116 c115;
+  Descending c115.
+  let k5=N(c1)		# k5: number of spawning females analysed
+  Set c17
+  k100( 1 : k5 / 1 )1
+  End.
+  Set c117
+  1( 1 : k5 / 1 )1
+  End.
+  stack (c210-c217) (c110-c117) (c210-c217)
+  
+  do k69=1:k5
+    copy c113 c114 c999 c1000;
+    use c117=k69.
+    let k22=mean(c999)	# Mean Pn spawnings
+    let k25=mean(c1000)	# Mean Pp spawnings
+    sort c999 c999
+    sort c1000 c1000
+    stack (c21 c22 c25) (k69 k22 k25) (c21 c22 c25)
+  enddo
+  
+  # Calculate the difference between observed and simulated spawnings:
+  let c4=c113
+  let c5=c114
+  let c6=('Pn'- c113 )**2
+  let c7=('Pp'- c114)**2
+  let k7=(sum(c6)+sum(c7))/(N(c1)*2)	# MS (mean of squares)
+  stack (c30 c31 c32) (k100 'R' k7) (c30 c31 c32) 
+  erase c110-c117
+enddo
+
+# let c22=-c22
+# let c23=-c23
+# let c24=-c24
+endmacro
